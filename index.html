@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<link rel="icon" type="image/svg+xml" href="/favicon.ico" />
+	<link rel="preconnect" href="https://rsms.me/">
+	<link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Three.js Blocks Starter</title>
+	<style>
+		/* reset */
+		* {
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
+		}
+
+		html,
+		body {
+			height: 100%;
+			overscroll-behavior: none;
+		}
+
+		body {
+			background-color: #000000;
+		}
+
+		#app {
+			width: 100%;
+			height: 100%;
+		}
+
+		/* Source rect for data-canvas-text sync (canvas is painted on top; only worker Text is visible) */
+
+		#app .canvas-Page-Title{
+			position: fixed;
+			right: 25px;
+			top: 50px;
+			padding: 4px 10px;
+			font-family: 'Inter', sans-serif;
+			font-size: 30px;
+			color: #e8e8e8;
+			pointer-events: none;
+			white-space: nowrap;
+			opacity: 1;
+			transition: opacity 2s linear;
+
+		}
+		#app .canvas-Page-Instructions{
+			position: fixed;
+			right: 25px;
+			top: 105px;
+			padding: 4px 10px;
+			font-family: 'Inter', sans-serif;
+			font-size: 15px;
+			color: #e8e8e8;
+			pointer-events: none;
+			white-space: nowrap;
+			opacity: 1;
+			transition: opacity 2s linear;
+
+		}
+		#app .canvas-Title-upper-left {
+			position: fixed;
+			left: 450px;
+			top: 150px;
+			padding: 4px 10px;
+			font-family: 'Inter', sans-serif;
+			font-size: 30px;
+			color: #e8e8e8;
+			pointer-events: none;
+			white-space: nowrap;
+			opacity: 0;
+		}
+
+		#app .canvas-AtomExplainer-upper-left {
+			max-width: 400px;
+			position: fixed;
+			left: 450px;
+			top: 205px;
+			padding: 4px 10px;
+			font-family: 'Inter', sans-serif;
+			font-size: 14px;
+			color: #e8e8e8;
+			pointer-events: none;
+			white-space: pre-wrap;
+			opacity: 0;
+		}
+		#app .canvas-SubSurfaceTitle-lower-left {
+			position: fixed;
+			right: 237px;
+			bottom: 405px;
+			padding: 4px 10px;
+			font-family: 'Inter', sans-serif;
+			font-size: 30px;
+			color: #e8e8e8;
+			pointer-events: none;
+			white-space: nowrap;
+			opacity: 0;
+		}
+		#app .canvas-SubSurfaceExplainer-lower-left {
+			max-width: 400px;
+			position: fixed;
+			right: 150px;
+			bottom: 350px;
+			padding: 4px 10px;
+			font-family: 'Inter', sans-serif;
+			font-size: 14px;
+			color: #e8e8e8;
+			pointer-events: none;
+			white-space: pre-wrap;
+			opacity: 0;
+		}
+
+		@media screen and (max-width: 480px) {
+			#app .canvas-SubSurfaceTitle-lower-left {
+				right: 16px;
+				bottom: 220px;
+				font-size: 22px;
+			}
+
+			#app .canvas-SubSurfaceExplainer-lower-left {
+				right: 16px;
+				bottom: 80px;
+				max-width: calc(100vw - 32px);
+				font-size: 13px;
+			}
+		}
+
+		#explainer-callout-overlay {
+			position: fixed;
+			inset: 0;
+			width: 100%;
+			height: 100%;
+			pointer-events: none;
+			z-index: 20;
+		}
+
+		#explainer-callout-overlay line {
+			stroke: #e8e8e8;
+			stroke-width: 1;
+		}
+
+		#mobile-intro-close {
+			position: fixed;
+			left: 50%;
+			bottom: 24px;
+			transform: translateX(-50%);
+			z-index: 30;
+			padding: 8px 16px;
+			font-family: 'Inter', sans-serif;
+			font-size: 28px;
+			line-height: 1;
+			color: #e8e8e8;
+			background-color: rgb(0, 0, 0, 0.75);
+			border: none;
+			border-radius: 10px;
+			opacity: 0;
+			pointer-events: none;
+			transition: opacity 1s linear;
+		}
+
+		#mobile-intro-close.is-visible {
+			opacity: 1;
+			pointer-events: auto;
+		}
+	</style>
+</head>
+
+<body>
+	<div id="app">
+	<!--	<div style="background-color: rgb(0, 0, 0, 0.75); padding: 10px; border-radius: 10px;" class="canvas-Title-upper-left" >Atoms</div> -->
+		<div style="background: linear-gradient(to right, rgb(2, 74, 99, 1), rgb(144, 215, 199, 0)); padding: 10px; border-radius: 10px;" class="canvas-Title-upper-left" >Atoms</div>
+		<div style="background: linear-gradient(to right, rgb(144, 215, 199, 0),  rgb(2, 74, 99, 1)); padding: 10px; border-radius: 10px;" class="canvas-AtomExplainer-upper-left" >Atomic structure of the protein, shows individual atoms and their positions on the protein branches.</div>
+		<div style="background: linear-gradient(to right, rgb(2, 74, 99, 1), rgb(144, 215, 199, 0)); padding: 10px; border-radius: 10px;" class="canvas-SubSurfaceTitle-lower-left" > Space Filling Diagram</div>
+		<div style="background: linear-gradient(to right, rgb(144, 215, 199, 0),  rgb(2, 74, 99, 1)); padding: 10px; border-radius: 10px;" class="canvas-SubSurfaceExplainer-lower-left" >Showcases the protein's structure, and how the atoms bond with eachother to form the protein's structure.</div>
+		<div style="background: linear-gradient(to right, rgb(2, 74, 99, 1), rgb(144, 215, 199, 0)); padding: 10px; border-radius: 10px;" class="canvas-Page-Title" >Explore the 3D Protein</div>
+		<div style="background: linear-gradient(to right, rgb(144, 215, 199, 0),  rgb(2, 74, 99, 1)); padding: 10px; border-radius: 10px;" class="canvas-Page-Instructions" >Drag to rotate. Click the circles to learn more.</div>
+
+		<svg xmlns="http://www.w3.org/2000/svg" id="explainer-callout-overlay" aria-hidden="true">
+			<line id="atoms-explainer-callout-line" x1="0" y1="0" x2="0" y2="0" style="display: none;"></line>
+			<line id="subsurf-explainer-callout-line" x1="0" y1="0" x2="0" y2="0" style="display: none;"></line>
+		</svg>
+
+		<button type="button" id="mobile-intro-close" aria-label="Close">×</button>
+
+	</div>
+
+	<script type="module">
+		import { init, dispatcher } from './src/index.js';
+
+		const MOBILE_CALLOUT_MAX_WIDTH = 480;
+
+		const atomsExplainerLine = document.querySelector( '#atoms-explainer-callout-line' );
+		const subsurfExplainerLine = document.querySelector( '#subsurf-explainer-callout-line' );
+		const mobileIntroClose = document.querySelector( '#mobile-intro-close' );
+		const pageTitle = document.querySelector( '.canvas-Page-Title' );
+		const pageInstructions = document.querySelector( '.canvas-Page-Instructions' );
+
+		setTimeout( () => {
+
+			pageTitle.style.opacity = 0;
+			pageInstructions.style.opacity = 0;
+
+		}, 5000 );
+
+		let atomsIntroOpen = false;
+		let subSurfIntroOpen = false;
+
+		function isMobileLayout() {
+
+			return window.innerWidth <= MOBILE_CALLOUT_MAX_WIDTH;
+
+		}
+
+		function syncMobileIntroClose() {
+
+			if ( ! isMobileLayout() ) {
+
+				mobileIntroClose.classList.remove( 'is-visible' );
+				return;
+
+			}
+
+			mobileIntroClose.classList.toggle(
+				'is-visible',
+				atomsIntroOpen || subSurfIntroOpen
+			);
+
+		}
+
+		function isCalloutLineAllowed() {
+
+			return window.innerWidth > MOBILE_CALLOUT_MAX_WIDTH;
+
+		}
+
+		function bottomNearestExplainerCorner( sx, sy, rect ) {
+
+			const blDx = sx - rect.left;
+			const blDy = sy - rect.bottom;
+			const brDx = sx - rect.right;
+			const brDy = sy - rect.bottom;
+
+			const d2BL = blDx * blDx + blDy * blDy;
+			const d2BR = brDx * brDx + brDy * brDy;
+
+			if ( d2BL <= d2BR ) return { x: rect.left, y: rect.bottom };
+			return { x: rect.right, y: rect.bottom };
+
+		}
+
+		function setCalloutLine( lineEl, sx, sy, explainerSel, visible ) {
+
+			const explainerEl = document.querySelector( explainerSel );
+
+			if (
+				! isCalloutLineAllowed() ||
+				! visible ||
+				sx == null ||
+				sy == null ||
+				parseFloat( getComputedStyle( explainerEl ).opacity ) < 1
+			) {
+
+				lineEl.style.display = 'none';
+				return;
+
+			}
+
+			const r = explainerEl.getBoundingClientRect();
+			const corner = bottomNearestExplainerCorner( sx, sy, r );
+
+			lineEl.setAttribute( 'x1', String( sx ) );
+			lineEl.setAttribute( 'y1', String( sy ) );
+			lineEl.setAttribute( 'x2', String( corner.x ) );
+			lineEl.setAttribute( 'y2', String( corner.y ) );
+			lineEl.style.display = '';
+
+		}
+
+		window.addEventListener( 'resize', () => {
+
+			if ( ! isCalloutLineAllowed() ) {
+
+				atomsExplainerLine.style.display = 'none';
+				subsurfExplainerLine.style.display = 'none';
+
+			}
+
+			syncMobileIntroClose();
+
+		} );
+
+		dispatcher.on( 'atomsExplainerAnchor', ( data ) => {
+
+			setCalloutLine(
+				atomsExplainerLine,
+				data.sx,
+				data.sy,
+				'.canvas-AtomExplainer-upper-left',
+				data.visible
+			);
+
+		} );
+
+		dispatcher.on( 'subSurfExplainerAnchor', ( data ) => {
+
+			setCalloutLine(
+				subsurfExplainerLine,
+				data.sx,
+				data.sy,
+				'.canvas-SubSurfaceExplainer-lower-left',
+				data.visible
+			);
+
+		} );
+
+		dispatcher.on( 'atomsIntroReveal', () => {
+			document.querySelector('.canvas-Title-upper-left').style.opacity = 1;
+			document.querySelector('.canvas-AtomExplainer-upper-left').style.opacity = 1;
+			atomsIntroOpen = true;
+			syncMobileIntroClose();
+		});
+
+		dispatcher.on( 'atomsIntroHide', () => {
+			document.querySelector( '.canvas-Title-upper-left' ).style.opacity = 0;
+			document.querySelector( '.canvas-AtomExplainer-upper-left' ).style.opacity = 0;
+			atomsExplainerLine.style.display = 'none';
+			atomsIntroOpen = false;
+			syncMobileIntroClose();
+		} );
+
+		dispatcher.on( 'subSurfIntroReveal', () => {
+			document.querySelector('.canvas-SubSurfaceTitle-lower-left' ).style.opacity = 1;
+			document.querySelector('.canvas-SubSurfaceExplainer-lower-left' ).style.opacity = 1;
+			subSurfIntroOpen = true;
+			syncMobileIntroClose();
+		} );
+
+		dispatcher.on( 'subSurfIntroHide', () => {
+			document.querySelector( '.canvas-SubSurfaceTitle-lower-left' ).style.opacity = 0;
+			document.querySelector( '.canvas-SubSurfaceExplainer-lower-left' ).style.opacity = 0;
+			subsurfExplainerLine.style.display = 'none';
+			subSurfIntroOpen = false;
+			syncMobileIntroClose();
+		} );
+
+		const api = await init({
+			debug: false,
+			offscreen: true
+		});
+
+		mobileIntroClose.addEventListener( 'click', () => {
+
+			api.trigger( { name: 'mobileIntroDismiss' }, {} );
+
+		} );
+
+		dispatcher.on(
+			'debugInfos',
+			({ threadType, renderBackend, hardwareInfo }) => {
+				console.log(`
+${threadType ? `Thread Type: ${threadType} 🧵` : ''}
+---
+${renderBackend ? `Render Backend: ${renderBackend} 🚀` : ''}
+---
+${hardwareInfo ? `Hardware Info: ${hardwareInfo} 🖥️` : ''}
+`);
+			}
+		);
+	</script>
+</body>
+
+</html>

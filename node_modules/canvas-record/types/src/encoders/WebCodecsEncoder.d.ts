@@ -1,0 +1,44 @@
+export default WebCodecsEncoder;
+export type WebCodecsEncoderOptions = {
+    groupOfPictures?: number;
+    flushFrequency?: number;
+    encoderOptions?: WebCodecsEncoderEncoderOptions;
+};
+export type WebCodecsEncoderEncoderOptions = VideoEncoderConfig;
+export type WebCodecsMuxerOptions = any;
+/**
+ * @typedef {object} WebCodecsEncoderOptions
+ * @property {number} [groupOfPictures=20]
+ * @property {number} [flushFrequency=10]
+ * @property {WebCodecsEncoderEncoderOptions} [encoderOptions={}]
+ */
+/**
+ * @typedef {VideoEncoderConfig} WebCodecsEncoderEncoderOptions
+ * @see [VideoEncoder.configure]{@link https://developer.mozilla.org/en-US/docs/Web/API/VideoEncoder/configure#config}
+ */
+/**
+ * @typedef {import("mediabunny").OutputOptions} WebCodecsMuxerOptions
+ * @see [mediabunny#output-formats]{@link https://mediabunny.dev/guide/output-formats}
+ */
+declare class WebCodecsEncoder extends Encoder {
+    static supportedExtensions: string[];
+    static supportedTargets: string[];
+    static defaultOptions: {
+        extension: string;
+        groupOfPictures: number;
+        flushFrequency: number;
+    };
+    /**
+     * @param {WebCodecsEncoderOptions} [options]
+     */
+    constructor(options?: WebCodecsEncoderOptions);
+    get frameMethod(): string;
+    init(options: any): Promise<void>;
+    writableFileStream: any;
+    muxer: any;
+    encoder: VideoEncoder;
+    encode(frame: any, number: any): Promise<void>;
+    stop(): Promise<any>;
+    dispose(): Promise<void>;
+}
+import Encoder from "./Encoder.js";
