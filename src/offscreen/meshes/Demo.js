@@ -7,7 +7,7 @@ import { scene } from '@/offscreen/main';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { store } from '@/offscreen/store';
 import virtualElement from '@/offscreen/dispatcher/helpers/virtualElement';
-import { add, clamp, color, dot, float, mix, mul, normalWorld, pow, texture, uniform, uv, vec3, vertexColor, normalize, positionWorld, sub } from 'three/tsl';
+import { add, clamp, color, dot, float, fwidth, materialOpacity, mix, mul, normalWorld, pow, smoothstep, texture, uniform, uv, vec3, vertexColor, normalize, positionWorld, sub } from 'three/tsl';
 import { fresnel } from 'three-blocks/core-tsl-effects';
 import dispatcher from '@/shared/dispatcher';
 import { OrbitParticles } from '@/offscreen/meshes/OrbitParticles.js';
@@ -19,6 +19,22 @@ const DEFAULT_MODEL_FIDELITY = 'high';
 const PROTEIN_MODEL_SCALE = 2.5;
 const RIM_LIGHT_COLOR = 0xcbe6f9;
 const RIM_LIGHT_STRENGTH = 0.04;
+const RING_RADIUS = 5;
+const RING_HALF_WIDTH = 1;
+const RING_PLANE_SIZE = 14;
+
+// Flat ring with edges anti-aliased per pixel (fwidth), so it stays smooth at any render resolution
+function createHotspotRingMaterial() {
+
+	const material = new THREE.MeshBasicNodeMaterial( { color: 0xffffff } );
+	const distanceFromCenter = uv().sub( 0.5 ).length().mul( RING_PLANE_SIZE );
+	const distanceOutsideRing = distanceFromCenter.sub( RING_RADIUS ).abs().sub( RING_HALF_WIDTH );
+	const edgeWidth = fwidth( distanceOutsideRing );
+	const ringCoverage = float( 1 ).sub( smoothstep( edgeWidth.negate(), edgeWidth, distanceOutsideRing ) );
+	material.opacityNode = ringCoverage.mul( materialOpacity );
+	return material;
+
+}
 export class Demo extends component( THREE.Object3D, {
     raf: {
         renderPriority: 1,
@@ -204,11 +220,11 @@ export class Demo extends component( THREE.Object3D, {
 		this._pickNdc = new THREE.Vector2();
 
 		// clickable spheres outlines (billboard: torus plane follows view)
-		this._subSurfOutline = new THREE.Mesh( new THREE.TorusGeometry( 5, 1, 32, 32 ), new THREE.MeshBasicMaterial( { color: 0xffffff } ) );
+		this._subSurfOutline = new THREE.Mesh( new THREE.PlaneGeometry( RING_PLANE_SIZE, RING_PLANE_SIZE ), createHotspotRingMaterial() );
 		this._subSurfOutline.position.copy( subSurfSphereVector);
 		this.add( this._subSurfOutline );
 
-		this._atomsOutline = new THREE.Mesh( new THREE.TorusGeometry( 5, 1, 32, 32 ), new THREE.MeshBasicMaterial( { color: 0xffffff } ) );
+		this._atomsOutline = new THREE.Mesh( new THREE.PlaneGeometry( RING_PLANE_SIZE, RING_PLANE_SIZE ), createHotspotRingMaterial() );
 		this._atomsOutline.position.copy( atomsSphereVector );
 		this.add( this._atomsOutline );
 
