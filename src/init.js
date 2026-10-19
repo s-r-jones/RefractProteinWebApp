@@ -127,52 +127,45 @@ function init( { record = false, debug = false, offscreen = false } = {} ) {
 
 			await initWorker();
 
-			// Initialize stats-gl for offscreen mode
-			if ( debug ) {
+			// stats-gl is only created and polled while the debug panel is visible
+			let statsSetup = null;
+			let statsVisible = false;
+
+			const setupStats = async () => {
 
 				const { default: Stats } = await import( 'stats-gl' );
 				await api.initStats( { trackGPU: true, trackCPT: isWebGPU } );
 
 				const stats = new Stats( { trackGPU: true, trackCPT: isWebGPU } );
 				container.appendChild( stats.dom );
+				return stats;
 
-				// Track created texture panels
-				const createdPanels = new Set();
+			};
 
-				// Listen for texture captures from worker
-				worker.addEventListener( 'message', ( event ) => {
+			const pollStats = async ( stats ) => {
 
-					if ( event.data?.type === 'texture' ) {
+				if ( ! statsVisible ) return;
 
-						const { name, bitmap, width, height } = event.data;
+				const data = await api.getStats();
+				stats.begin();
+				if ( data ) stats.setData( data );
+				stats.update();
+				requestAnimationFrame( () => pollStats( stats ) );
 
-						if ( ! createdPanels.has( name ) ) {
+			};
 
-							stats.addTexturePanel( name );
-							createdPanels.add( name );
+			dispatcher.on( 'debugPanelVisible', async ( { visible } ) => {
 
-						}
+				statsSetup ??= setupStats();
+				const stats = await statsSetup;
 
-						stats.setTextureBitmap( name, bitmap, width, height );
+				const wasVisible = statsVisible;
+				statsVisible = visible;
+				stats.dom.style.display = visible ? '' : 'none';
+				await api.setStatsRunning( visible );
+				if ( visible && ! wasVisible ) pollStats( stats );
 
-					}
-
-				} );
-
-				const pollStats = async () => {
-
-					const data = await api.getStats();
-					stats.begin();
-					if ( data ) stats.setData( data );
-					requestAnimationFrame( pollStats );
-
-					stats.update();
-
-				};
-
-				pollStats();
-
-			}
+			} );
 
 		} else {
 

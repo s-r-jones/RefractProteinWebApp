@@ -7,7 +7,8 @@ import { scene } from '@/offscreen/main';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { store } from '@/offscreen/store';
 import virtualElement from '@/offscreen/dispatcher/helpers/virtualElement';
-import { add, clamp, dot, float, mix, mul, normalWorld, pow, texture, uniform, uv, vec3, vertexColor, normalize, positionWorld, sub } from 'three/tsl';
+import { add, clamp, color, dot, float, mix, mul, normalWorld, pow, texture, uniform, uv, vec3, vertexColor, normalize, positionWorld, sub } from 'three/tsl';
+import { fresnel } from 'three-blocks/core-tsl-effects';
 import dispatcher from '@/shared/dispatcher';
 import { OrbitParticles } from '@/offscreen/meshes/OrbitParticles.js';
 
@@ -16,6 +17,8 @@ const HOTZONE_FADE_DURATION = 1;
 const DEMO_MESH_LOAD_COUNT = 4;
 const DEFAULT_MODEL_FIDELITY = 'high';
 const PROTEIN_MODEL_SCALE = 2.5;
+const RIM_LIGHT_COLOR = 0xcbe6f9;
+const RIM_LIGHT_STRENGTH = 0.04;
 export class Demo extends component( THREE.Object3D, {
     raf: {
         renderPriority: 1,
@@ -56,6 +59,7 @@ export class Demo extends component( THREE.Object3D, {
 
 		this._sssLightWorldPosition = uniform( new THREE.Vector3( 4, 4, 4 ) );
 		this._sssKeyLightToward = uniform( new THREE.Vector3( 0, 1, 0 ) );
+		this._rimLightStrength = uniform( RIM_LIGHT_STRENGTH );
 
 		this._demoMeshesLoaded = 0;
 		this._demoMeshesReady = false;
@@ -119,9 +123,11 @@ export class Demo extends component( THREE.Object3D, {
         metalness: 0.0,
         ior: 1.5,
     } );
+	const rimLightNode = color( RIM_LIGHT_COLOR ).mul( fresnel( 3, 1 ) ).mul( this._rimLightStrength );
+
 	sssMaterial.emissiveNode = add(
-		add( sssMaterial.emissiveNode ?? vec3( 0, 0, 0 ), fakeSssFromPoint ),
-		fakeSssFromKey
+		add( add( sssMaterial.emissiveNode ?? vec3( 0, 0, 0 ), fakeSssFromPoint ), fakeSssFromKey ),
+		rimLightNode
 	);
 
 	const atomsMaterial = new THREE.MeshPhysicalNodeMaterial( {
@@ -132,6 +138,7 @@ export class Demo extends component( THREE.Object3D, {
         metalness: 0.0,
         ior: 1.25,
     } );
+	atomsMaterial.emissiveNode = rimLightNode;
 
 	this._sssMaterial = sssMaterial;
 	this._atomsMaterial = atomsMaterial;
@@ -261,6 +268,12 @@ export class Demo extends component( THREE.Object3D, {
 		this.add( new OrbitParticles() );
 
     }
+
+	onSetRimLight( { strength } ) {
+
+		this._rimLightStrength.value = strength;
+
+	}
 
 	onSetModelFidelity( { fidelity } ) {
 

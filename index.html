@@ -210,6 +210,12 @@
 					<option value="original">original (local only)</option>
 				</select>
 			</label>
+			<button type="button" id="post-effects-toggle">post fx: on</button>
+			<label>
+				rim light
+				<input type="range" id="rim-light-slider" min="0" max="1" step="0.01" value="0.04">
+				<span id="rim-light-value">0.04</span>
+			</label>
 		</div>
 
 	</div>
@@ -374,7 +380,6 @@
 		} );
 
 		const urlParams = new URLSearchParams( location.search );
-		const debugEnabled = urlParams.has( 'debug' );
 
 		dispatcher.on( 'compileEnd', ( { compileMs } = {} ) => {
 
@@ -387,7 +392,6 @@
 		const modelFidelity = urlParams.get( 'fidelity' ) ?? 'high';
 
 		const api = await init({
-			debug: debugEnabled,
 			offscreen: true
 		});
 
@@ -398,15 +402,59 @@
 		}
 
 		setModelFidelity( modelFidelity );
+		setupDebugPanel();
 
-		if ( debugEnabled ) {
+		function setupDebugPanel() {
 
 			const renderInfo = document.querySelector( '#render-info' );
 			const fidelitySelect = document.querySelector( '#fidelity-select' );
-			document.querySelector( '#debug-panel' ).hidden = false;
+			const debugPanel = document.querySelector( '#debug-panel' );
+
+			const LONG_PRESS_MS = 800;
+			const LONG_PRESS_CORNER_PX = 60;
+			let longPressTimer = null;
+
+			window.addEventListener( 'pointerdown', ( event ) => {
+
+				const inLowerLeftCorner = event.clientX < LONG_PRESS_CORNER_PX && event.clientY > innerHeight - LONG_PRESS_CORNER_PX;
+				if ( ! inLowerLeftCorner ) return;
+
+				longPressTimer = setTimeout( () => {
+
+					debugPanel.hidden = ! debugPanel.hidden;
+					dispatcher.trigger( { name: 'debugPanelVisible' }, { visible: ! debugPanel.hidden } );
+
+				}, LONG_PRESS_MS );
+
+			} );
+
+			for ( const cancelEvent of [ 'pointerup', 'pointercancel' ] ) {
+
+				window.addEventListener( cancelEvent, () => clearTimeout( longPressTimer ) );
+
+			}
 
 			fidelitySelect.value = modelFidelity;
 			fidelitySelect.addEventListener( 'change', () => setModelFidelity( fidelitySelect.value ) );
+
+			const postEffectsToggle = document.querySelector( '#post-effects-toggle' );
+			let postEffectsEnabled = true;
+			postEffectsToggle.addEventListener( 'click', () => {
+
+				postEffectsEnabled = ! postEffectsEnabled;
+				postEffectsToggle.textContent = `post fx: ${ postEffectsEnabled ? 'on' : 'off' }`;
+				api.trigger( { name: 'setPostEffects' }, { enabled: postEffectsEnabled } );
+
+			} );
+
+			const rimLightSlider = document.querySelector( '#rim-light-slider' );
+			const rimLightValue = document.querySelector( '#rim-light-value' );
+			rimLightSlider.addEventListener( 'input', () => {
+
+				rimLightValue.textContent = rimLightSlider.value;
+				api.trigger( { name: 'setRimLight' }, { strength: Number( rimLightSlider.value ) } );
+
+			} );
 
 			dispatcher.on( 'renderInfo', ( { drawCalls, triangles } ) => {
 

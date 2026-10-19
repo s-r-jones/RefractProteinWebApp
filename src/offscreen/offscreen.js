@@ -199,14 +199,19 @@ function subscribeToAllEvents( cb ) {
 
 }
 
+let statsProfiler = null;
+
 async function initStats( options ) {
 
-	store.statsProfiler = new StatsProfiler( options );
-	await store.statsProfiler.init( store.gl );
+	statsProfiler = new StatsProfiler( options );
+	await statsProfiler.init( store.gl );
 
-	// Initialize texture captures for StatsGLNode
-	const { initStatsCaptures } = await import( '@/offscreen/dispatcher/helpers/raf.js' );
-	await initStatsCaptures();
+}
+
+function setStatsRunning( running ) {
+
+	store.statsProfiler = running ? statsProfiler : null;
+	store.gl.backend.trackTimestamp = running;
 
 }
 
@@ -223,6 +228,7 @@ const workerApi = {
 	trigger,
 	subscribeToAllEvents,
 	initStats,
+	setStatsRunning,
 	getStats,
 };
 

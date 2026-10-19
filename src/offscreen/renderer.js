@@ -7,7 +7,6 @@ import * as THREE from 'three/webgpu';
 import {
 	float,
 	mix,
-	nodeObject,
 	pass,
 	rand,
 	renderOutput,
@@ -19,7 +18,6 @@ import {
 } from 'three/tsl';
 
 import { dof } from 'three/addons/tsl/display/DepthOfFieldNode.js';
-import { fxaa } from 'three/addons/tsl/display/FXAANode.js';
 const DOF_FOCAL_LENGTH = 60;
 const DOF_BOKEH_SCALE = 2.5;
 const RENDER_INFO_INTERVAL_MS = 500;
@@ -58,6 +56,7 @@ class RendererImpl extends component( THREE.WebGPURenderer, {
 
 		this._dofActive = false;
 		this._dofTarget = null;
+		this._postEffectsEnabled = true;
 		this._focusWorld = new THREE.Vector3();
 		this._cameraWorld = new THREE.Vector3();
 		this._cameraForward = new THREE.Vector3();
@@ -95,6 +94,14 @@ class RendererImpl extends component( THREE.WebGPURenderer, {
 
 		} );
 
+		dispatcher.on( 'setPostEffects', ( { enabled } ) => {
+
+			this._postEffectsEnabled = enabled;
+			if ( this._dofActive ) this._setOutputDof();
+			else this._setDisplayOutput( this._sceneColor );
+
+		} );
+
 	}
 
 	_setOutputNoDof() {
@@ -122,7 +129,14 @@ class RendererImpl extends component( THREE.WebGPURenderer, {
 	_setDisplayOutput( linearColor ) {
 
 		const displayColor = renderOutput( linearColor, THREE.ACESFilmicToneMapping, THREE.SRGBColorSpace );
-		const antialiasedColor = nodeObject( fxaa( displayColor ) );
+
+		if ( ! this._postEffectsEnabled ) {
+
+			this.postProcessing.outputNode = displayColor;
+			this.postProcessing.needsUpdate = true;
+			return;
+
+		}
 
 		const distanceFromCenter = screenUV.sub( 0.5 ).length();
 		const vignette = mix( float( 1 ), float( 1 ).sub( smoothstep( 0.3, 0.8, distanceFromCenter ) ), VIGNETTE_STRENGTH );
@@ -130,7 +144,7 @@ class RendererImpl extends component( THREE.WebGPURenderer, {
 		const triangularNoise = rand( screenCoordinate.xy ).add( rand( screenCoordinate.yx.add( 17 ) ) ).sub( 1 );
 		const ditherOneStep = triangularNoise.div( 255 );
 
-		this.postProcessing.outputNode = vec4( antialiasedColor.rgb.mul( vignette ).add( ditherOneStep ), antialiasedColor.a );
+		this.postProcessing.outputNode = vec4( displayColor.rgb.mul( vignette ).add( ditherOneStep ), displayColor.a );
 		this.postProcessing.needsUpdate = true;
 
 	}
