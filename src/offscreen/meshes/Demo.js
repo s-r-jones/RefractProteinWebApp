@@ -7,7 +7,7 @@ import { scene } from '@/offscreen/main';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { store } from '@/offscreen/store';
 import virtualElement from '@/offscreen/dispatcher/helpers/virtualElement';
-import { add, clamp, color, dot, float, fwidth, materialOpacity, mix, mul, normalWorld, pow, smoothstep, texture, uniform, uv, vec3, vertexColor, normalize, positionWorld, sub } from 'three/tsl';
+import { add, clamp, color, dot, float, fwidth, materialOpacity, mix, mul, normalWorld, pow, smoothstep, uniform, uv, vec3, vertexColor, normalize, positionWorld, sub } from 'three/tsl';
 import { fresnel } from 'three-blocks/core-tsl-effects';
 import dispatcher from '@/shared/dispatcher';
 import { OrbitParticles } from '@/offscreen/meshes/OrbitParticles.js';
@@ -19,6 +19,7 @@ const DEFAULT_MODEL_FIDELITY = 'high';
 const PROTEIN_MODEL_SCALE = 2.5;
 const RIM_LIGHT_COLOR = 0xcbe6f9;
 const RIM_LIGHT_STRENGTH = 0.04;
+const SSS_THICKNESS_TEXEL = 201 / 255;
 const RING_RADIUS = 5;
 const RING_HALF_WIDTH = 1;
 const RING_PLANE_SIZE = 14;
@@ -87,15 +88,8 @@ export class Demo extends component( THREE.Object3D, {
 
 
 	//GLB + SSS-style transmissive material
-	const thicknessLoader = new THREE.ImageBitmapLoader();
-	thicknessLoader.load( '/assets/ThickMap.webp', ( bitmap ) => {
-
-    const thicknessTex = new THREE.Texture( bitmap );
-    thicknessTex.flipY = false;
-    thicknessTex.colorSpace = THREE.NoColorSpace;
-    thicknessTex.needsUpdate = true;
-
-	const thicknessNode = texture( thicknessTex, uv() ).r;
+	// The models have no UVs, so the old thickness map was only ever sampled at its first texel
+	const thicknessNode = float( SSS_THICKNESS_TEXEL );
 
 	const pointToLightRay = normalize( this._sssLightWorldPosition.sub( positionWorld ) );
 	const pointBackLightNode = pow(
@@ -131,8 +125,7 @@ export class Demo extends component( THREE.Object3D, {
 		color: 0xffffff,
 		vertexColors: true,
         transmission: 1,
-        thickness: 0.15,
-        thicknessMap: thicknessTex,
+        thickness: 0.15 * SSS_THICKNESS_TEXEL,
 		attenuationColor: new THREE.Color( 0xffc964 ),
         attenuationDistance: 1,
         roughness: 0.75,
@@ -159,8 +152,6 @@ export class Demo extends component( THREE.Object3D, {
 	this._sssMaterial = sssMaterial;
 	this._atomsMaterial = atomsMaterial;
 	this.loadProteinModels( this._modelFidelity );
-
-} );
 		//Background Sphere
 
 		const bckTxtLoader = new THREE.ImageBitmapLoader();

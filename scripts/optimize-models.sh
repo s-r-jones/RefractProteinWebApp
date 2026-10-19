@@ -17,7 +17,7 @@ build_fidelity() {
 	for model in "${models[@]}"; do
 		$gltf_transform weld "$model.glb" "/tmp/$model.welded.glb"
 		$gltf_transform simplify "/tmp/$model.welded.glb" "/tmp/$model.simplified.glb" --ratio "$keep_ratio" --error 0.01
-		$gltf_transform draco "/tmp/$model.simplified.glb" "$model.$fidelity_name.glb"
+		$gltf_transform draco "/tmp/$model.simplified.glb" "$model.$fidelity_name.glb" --encode-speed 0 --decode-speed 0 --quantize-normal 8
 	done
 }
 
