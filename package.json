@@ -39,5 +39,8 @@
     "preview": "vite preview --host",
     "start": "vite build && vite preview --host --port 4000",
     "deploy": "gh-pages -d dist"
+  },
+  "engines": {
+    "node": ">=22.12.0"
   }
 }
