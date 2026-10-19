@@ -43,7 +43,7 @@ function init( { record = false, debug = false, offscreen = false } = {} ) {
 		// Avoid creating a rendering context on the main thread when using OffscreenCanvas
 		autoCreateContext: ! offscreen,
 	} );
-	canvas.style = 'display: block; width: 100%; height: 100%;';
+	canvas.style.cssText = 'display: block; width: 100%; height: 100%;';
 	const container = document.getElementById( 'app' ) || document.body;
 	container.appendChild( canvas );
 
@@ -162,6 +162,7 @@ function init( { record = false, debug = false, offscreen = false } = {} ) {
 				const pollStats = async () => {
 
 					const data = await api.getStats();
+					stats.begin();
 					if ( data ) stats.setData( data );
 					requestAnimationFrame( pollStats );
 

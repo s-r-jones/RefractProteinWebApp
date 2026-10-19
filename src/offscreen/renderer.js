@@ -5,16 +5,25 @@ import dispatcher from '@/shared/dispatcher';
 import * as THREE from 'three/webgpu';
 
 import {
+	float,
+	mix,
+	nodeObject,
 	pass,
+	rand,
 	renderOutput,
+	screenCoordinate,
+	screenUV,
+	smoothstep,
 	uniform,
+	vec4,
 } from 'three/tsl';
 
 import { dof } from 'three/addons/tsl/display/DepthOfFieldNode.js';
-import { statsGL } from 'stats-gl/addons/StatsGLNode.js';
-
+import { fxaa } from 'three/addons/tsl/display/FXAANode.js';
 const DOF_FOCAL_LENGTH = 60;
 const DOF_BOKEH_SCALE = 2.5;
+const RENDER_INFO_INTERVAL_MS = 500;
+const VIGNETTE_STRENGTH = 0.25;
 
 class RendererImpl extends component( THREE.WebGPURenderer, {
 	raf: {
@@ -35,6 +44,7 @@ class RendererImpl extends component( THREE.WebGPURenderer, {
 
 		this.countRenderBeforeStart = 0;
 		this._compiled = false;
+		this._lastRenderInfoTime = 0;
 
 		this.shadowMap.enabled = true;
 		this.shadowMap.type = THREE.BasicShadowMap;
@@ -54,6 +64,7 @@ class RendererImpl extends component( THREE.WebGPURenderer, {
 		this._toFocus = new THREE.Vector3();
 
 		this.postProcessing = new THREE.PostProcessing( this );
+		this.postProcessing.outputColorTransform = false;
 		this._setOutputNoDof();
 
 		dispatcher.on( 'atomsIntroReveal', () => {
@@ -90,11 +101,7 @@ class RendererImpl extends component( THREE.WebGPURenderer, {
 
 		this._dofActive = false;
 		this._dofTarget = null;
-		this.postProcessing.outputNode = renderOutput(
-			statsGL( this._sceneColor, 'Scene Pass Color' ),
-			THREE.ACESFilmicToneMapping
-		);
-		this.postProcessing.needsUpdate = true;
+		this._setDisplayOutput( this._sceneColor );
 
 	}
 
@@ -108,10 +115,22 @@ class RendererImpl extends component( THREE.WebGPURenderer, {
 			this._focalLength,
 			this._bokehScale
 		);
-		this.postProcessing.outputNode = renderOutput(
-			statsGL( dofColor, 'Scene Pass Color' ),
-			THREE.ACESFilmicToneMapping
-		);
+		this._setDisplayOutput( dofColor );
+
+	}
+
+	_setDisplayOutput( linearColor ) {
+
+		const displayColor = renderOutput( linearColor, THREE.ACESFilmicToneMapping, THREE.SRGBColorSpace );
+		const antialiasedColor = nodeObject( fxaa( displayColor ) );
+
+		const distanceFromCenter = screenUV.sub( 0.5 ).length();
+		const vignette = mix( float( 1 ), float( 1 ).sub( smoothstep( 0.3, 0.8, distanceFromCenter ) ), VIGNETTE_STRENGTH );
+
+		const triangularNoise = rand( screenCoordinate.xy ).add( rand( screenCoordinate.yx.add( 17 ) ) ).sub( 1 );
+		const ditherOneStep = triangularNoise.div( 255 );
+
+		this.postProcessing.outputNode = vec4( antialiasedColor.rgb.mul( vignette ).add( ditherOneStep ), antialiasedColor.a );
 		this.postProcessing.needsUpdate = true;
 
 	}
@@ -179,6 +198,21 @@ class RendererImpl extends component( THREE.WebGPURenderer, {
 		}
 
 		this.postProcessing.render();
+		this._sendRenderInfo();
+
+	}
+
+	_sendRenderInfo() {
+
+		const debugEnabled = store.statsProfiler || store.stats;
+		if ( ! debugEnabled ) return;
+
+		const now = performance.now();
+		if ( now - this._lastRenderInfoTime < RENDER_INFO_INTERVAL_MS ) return;
+		this._lastRenderInfoTime = now;
+
+		const { drawCalls, triangles } = this.info.render;
+		dispatcher.trigger( { name: 'renderInfo' }, { drawCalls, triangles } );
 
 	}
 

@@ -36,10 +36,17 @@ export default defineConfig( {
 	},
 	build: {
 		target: 'esnext',
-		// Disable minification to prevent breaking Three.js TSL
-		minify: false,
+		minify: 'esbuild',
 	},
 	worker: {
 		format: 'es',
+	},
+	optimizeDeps: {
+		// three's Draco/KTX2 loaders locate their decoders with import.meta.url, which pre-bundling breaks
+		exclude: [ 'three' ],
+	},
+	esbuild: {
+		// DRACOLoader builds its decoder worker from Function.toString(), renamed identifiers break it
+		minifyIdentifiers: false,
 	},
 } );

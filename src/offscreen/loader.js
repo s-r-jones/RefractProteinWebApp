@@ -11,8 +11,6 @@ import dispatcher from '@/shared/dispatcher';
 
 import { RESOURCES } from './resources/common_resources';
 import { store } from '@/offscreen/store';
-import { resolvePublicPath } from '@/offscreen/utils/publicPath';
-import { GLTFCurveExtension } from '@three-blocks/core';
 
 let textureLoader;
 const isOffscreen = typeof window === 'undefined';
@@ -38,15 +36,11 @@ function convertBitmapToTexture( bitmap ) {
 
 }
 
-// Configure and create Draco decoder.
-const dracoLoader = new DRACOLoader();
-dracoLoader.setDecoderPath( resolvePublicPath( 'draco/' ) );
 const gltfLoader = new GLTFLoader();
-gltfLoader.setDRACOLoader( dracoLoader );
+gltfLoader.setDRACOLoader( new DRACOLoader() );
 gltfLoader.setMeshoptDecoder( MeshoptDecoder );
-gltfLoader.register( parser => new GLTFCurveExtension( parser ) );
 
-const ktxLoader = new KTX2Loader().setTranscoderPath( resolvePublicPath( 'basis/' ) );
+const ktxLoader = new KTX2Loader();
 // Define a mapping from file extensions to Three.js loaders
 const loadersMap = {
 	'.png': textureLoader, // 'png' extension will use TextureLoader internally

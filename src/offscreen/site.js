@@ -135,9 +135,11 @@ class Site extends component( null, {
 
 	onDemoMeshesReady() {
 
+		const compileStartTime = performance.now();
 		compileScene( this.gl, scene ).then( () => {
 
-			dispatcher.trigger( { name: 'compileEnd', fireAtStart: true } );
+			const compileMs = Math.round( performance.now() - compileStartTime );
+			dispatcher.trigger( { name: 'compileEnd', fireAtStart: true }, { compileMs } );
 
 		} );
 

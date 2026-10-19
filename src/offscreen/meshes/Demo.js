@@ -1,8 +1,8 @@
 import { subSurfSphereVector, atomsSphereVector } from '@/offscreen/constants.js';
 import * as THREE from 'three/webgpu';
-import { GridPristine } from '@three-blocks/core';
 import { component, updateComponentRegistry } from '@/offscreen/dispatcher';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { scene } from '@/offscreen/main';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { store } from '@/offscreen/store';
@@ -14,7 +14,8 @@ import { OrbitParticles } from '@/offscreen/meshes/OrbitParticles.js';
 const MOBILE_LAYOUT_MAX_WIDTH = 480;
 const HOTZONE_FADE_DURATION = 1;
 const DEMO_MESH_LOAD_COUNT = 4;
-
+const DEFAULT_MODEL_FIDELITY = 'high';
+const PROTEIN_MODEL_SCALE = 2.5;
 export class Demo extends component( THREE.Object3D, {
     raf: {
         renderPriority: 1,
@@ -59,10 +60,15 @@ export class Demo extends component( THREE.Object3D, {
 		this._demoMeshesLoaded = 0;
 		this._demoMeshesReady = false;
 
+		this._gltfLoader = new GLTFLoader().setDRACOLoader( new DRACOLoader() );
+		this._modelFidelity = DEFAULT_MODEL_FIDELITY;
+		this._loadedFidelity = null;
+		this._proteinModels = {};
+
 
 	//GLB + SSS-style transmissive material
 	const thicknessLoader = new THREE.ImageBitmapLoader();
-	thicknessLoader.load( '/assets/ThickMap.png', ( bitmap ) => {
+	thicknessLoader.load( '/assets/ThickMap.webp', ( bitmap ) => {
 
     const thicknessTex = new THREE.Texture( bitmap );
     thicknessTex.flipY = false;
@@ -118,33 +124,6 @@ export class Demo extends component( THREE.Object3D, {
 		fakeSssFromKey
 	);
 
-    const gltfLoader = new GLTFLoader();
-    gltfLoader.load(
-		'/assets/subsurfHD.glb',
-		( result ) => {
-
-        result.scene.scale.setScalar( 2.5 );
-		
-		result.scene.traverse( ( child ) => {
-
-            if ( child.isMesh ) {
-
-                child.material = sssMaterial;
-
-            }
-
-        } );
-
-        this.add( result.scene );
-		this._subSurfMeshRoot = result.scene;
-		store.subSurfMeshRoot = result.scene;
-		this._meshLoadDone();
-
-    },
-		undefined,
-		() => this._meshLoadDone()
-	);
-
 	const atomsMaterial = new THREE.MeshPhysicalNodeMaterial( {
 		color: 0xffffff,
 		vertexColors: true,
@@ -154,56 +133,16 @@ export class Demo extends component( THREE.Object3D, {
         ior: 1.25,
     } );
 
-	const gltfLoaderAtom = new GLTFLoader();
-    gltfLoaderAtom.load(
-		'/assets/atoms.glb',
-		( resultAtom ) => {
-
-        resultAtom.scene.scale.setScalar( 2.5 );
-
-		resultAtom.scene.traverse( ( child ) => {
-
-            if ( child.isMesh ) {
-
-                child.material = atomsMaterial;
-
-            }
-
-        } );
-	
-
-        this.add( resultAtom.scene );
-		this._atomsMeshRoot = resultAtom.scene;
-		store.atomsMeshRoot = resultAtom.scene;
-		this._meshLoadDone();
-
-    },
-		undefined,
-		() => this._meshLoadDone()
-	);
-
-	const gltfLoaderBands = new GLTFLoader();
-    gltfLoaderBands.load(
-		'/assets/bands.glb',
-		( resultBands ) => {
-
-        resultBands.scene.scale.setScalar( 2.5 );
-	
-
-        this.add( resultBands.scene );
-		this._meshLoadDone();
-
-    },
-		undefined,
-		() => this._meshLoadDone()
-	);
+	this._sssMaterial = sssMaterial;
+	this._atomsMaterial = atomsMaterial;
+	this.loadProteinModels( this._modelFidelity );
 
 } );
 		//Background Sphere
 
 		const bckTxtLoader = new THREE.ImageBitmapLoader();
 		bckTxtLoader.setOptions( { imageOrientation: 'flipY' } );
-		bckTxtLoader.load( '/assets/bckgrnd.png', ( bitmap ) => {
+		bckTxtLoader.load( '/assets/bckgrnd.webp', ( bitmap ) => {
 			const bckMap = new THREE.Texture( bitmap );
 			bckMap.colorSpace = THREE.SRGBColorSpace;
 			bckMap.needsUpdate = true;
@@ -322,6 +261,88 @@ export class Demo extends component( THREE.Object3D, {
 		this.add( new OrbitParticles() );
 
     }
+
+	onSetModelFidelity( { fidelity } ) {
+
+		this._modelFidelity = fidelity;
+		if ( this._sssMaterial ) this.loadProteinModels( fidelity );
+
+	}
+
+	loadProteinModels( fidelity ) {
+
+		if ( fidelity === this._loadedFidelity ) return;
+		this._loadedFidelity = fidelity;
+
+		const fileSuffix = fidelity === 'original' ? '' : `.${ fidelity }`;
+		this._loadProteinModel( 'subSurf', `/assets/subsurfHD${ fileSuffix }.glb`, this._sssMaterial, fidelity );
+		this._loadProteinModel( 'atoms', `/assets/atoms${ fileSuffix }.glb`, this._atomsMaterial, fidelity );
+		this._loadProteinModel( 'bands', `/assets/bands${ fileSuffix }.glb`, null, fidelity );
+
+	}
+
+	_loadProteinModel( modelName, url, material, fidelity ) {
+
+		this._gltfLoader.load(
+			url,
+			( gltf ) => {
+
+				const modelRoot = gltf.scene;
+				modelRoot.scale.setScalar( PROTEIN_MODEL_SCALE );
+
+				if ( material ) {
+
+					modelRoot.traverse( ( child ) => {
+
+						if ( child.isMesh ) child.material = material;
+
+					} );
+
+				}
+
+				const isStaleLoad = fidelity !== this._loadedFidelity;
+				if ( isStaleLoad ) {
+
+					this._disposeGeometries( modelRoot );
+					return;
+
+				}
+
+				this._replaceProteinModel( modelName, modelRoot );
+				this._meshLoadDone();
+
+			},
+			undefined,
+			( error ) => {
+
+				console.error( `Failed to load ${ url }`, error );
+				this._meshLoadDone();
+
+			}
+		);
+
+	}
+
+	_replaceProteinModel( modelName, newModelRoot ) {
+
+		const oldModelRoot = this._proteinModels[ modelName ];
+		if ( oldModelRoot ) {
+
+			this.remove( oldModelRoot );
+			this._disposeGeometries( oldModelRoot );
+
+		}
+
+		this._proteinModels[ modelName ] = newModelRoot;
+		this.add( newModelRoot );
+
+	}
+
+	_disposeGeometries( modelRoot ) {
+
+		modelRoot.traverse( ( child ) => child.geometry?.dispose() );
+
+	}
 
 	_meshLoadDone() {
 

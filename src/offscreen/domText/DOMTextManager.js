@@ -1,5 +1,5 @@
 import { BackSide, FrontSide, Color, DoubleSide } from 'three/webgpu';
-import { Text } from '@three-blocks/core';
+import { Text } from 'three-blocks/experimental/runtime-sdf-text';
 import { component } from '@/offscreen/dispatcher';
 import { store } from '@/offscreen/store';
 

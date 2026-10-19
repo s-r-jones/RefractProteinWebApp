@@ -178,6 +178,7 @@ function subscribeToAllEvents( cb ) {
 		'subSurfIntroHide',
 		'atomsExplainerAnchor',
 		'subSurfExplainerAnchor',
+		'renderInfo',
 	];
 
 	for ( const eventName of criticalEvents ) {

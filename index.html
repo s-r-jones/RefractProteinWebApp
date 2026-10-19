@@ -165,6 +165,19 @@
 			opacity: 1;
 			pointer-events: auto;
 		}
+
+		#debug-panel {
+			position: fixed;
+			left: 8px;
+			bottom: 8px;
+			z-index: 40;
+			padding: 6px 10px;
+			font-family: monospace;
+			font-size: 12px;
+			color: #e8e8e8;
+			background-color: rgb(0, 0, 0, 0.75);
+			border-radius: 6px;
+		}
 	</style>
 </head>
 
@@ -184,6 +197,20 @@
 		</svg>
 
 		<button type="button" id="mobile-intro-close" aria-label="Close">×</button>
+
+		<div id="debug-panel" hidden>
+			<div id="render-info">draw calls: - | triangles: -</div>
+			<div id="scene-ready">scene loading...</div>
+			<label>
+				fidelity
+				<select id="fidelity-select">
+					<option value="low">low</option>
+					<option value="medium">medium</option>
+					<option value="high">high</option>
+					<option value="original">original (local only)</option>
+				</select>
+			</label>
+		</div>
 
 	</div>
 
@@ -346,10 +373,48 @@
 			syncMobileIntroClose();
 		} );
 
+		const urlParams = new URLSearchParams( location.search );
+		const debugEnabled = urlParams.has( 'debug' );
+
+		dispatcher.on( 'compileEnd', ( { compileMs } = {} ) => {
+
+			const sceneReadySeconds = ( performance.now() / 1000 ).toFixed( 1 );
+			console.log( `Scene ready in ${ sceneReadySeconds }s, shader compile ${ compileMs }ms` );
+			document.querySelector( '#scene-ready' ).textContent = `scene ready in ${ sceneReadySeconds }s | shader compile ${ compileMs }ms`;
+
+		} );
+
+		const modelFidelity = urlParams.get( 'fidelity' ) ?? 'high';
+
 		const api = await init({
-			debug: false,
+			debug: debugEnabled,
 			offscreen: true
 		});
+
+		function setModelFidelity( fidelity ) {
+
+			api.trigger( { name: 'setModelFidelity', fireAtStart: true }, { fidelity } );
+
+		}
+
+		setModelFidelity( modelFidelity );
+
+		if ( debugEnabled ) {
+
+			const renderInfo = document.querySelector( '#render-info' );
+			const fidelitySelect = document.querySelector( '#fidelity-select' );
+			document.querySelector( '#debug-panel' ).hidden = false;
+
+			fidelitySelect.value = modelFidelity;
+			fidelitySelect.addEventListener( 'change', () => setModelFidelity( fidelitySelect.value ) );
+
+			dispatcher.on( 'renderInfo', ( { drawCalls, triangles } ) => {
+
+				renderInfo.textContent = `draw calls: ${ drawCalls } | triangles: ${ triangles.toLocaleString() }`;
+
+			} );
+
+		}
 
 		mobileIntroClose.addEventListener( 'click', () => {
 
